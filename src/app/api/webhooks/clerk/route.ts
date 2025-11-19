@@ -1,11 +1,9 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { WebhookEvent } from "@clerk/nextjs/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { stripe } from "@/lib/stripe";
 import { clerkClient } from "@clerk/nextjs/server";
-
-const prisma = new PrismaClient();
 export async function POST(req: Request) {
     const WEBHOOK_SECRET = process.env.CLERK_SECRET_KEY;
 

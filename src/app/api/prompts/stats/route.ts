@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/lib/prisma"
 
 export async function GET() {
     try {
@@ -20,7 +18,7 @@ export async function GET() {
         const stats = {
             all: total,
             ...Object.fromEntries(
-                categories.map((cat) => [cat.category, cat._count.id])
+                categories.map((cat: { category: string; _count: { id: number } }) => [cat.category, cat._count.id])
             ),
         }
 
