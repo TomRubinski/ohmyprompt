@@ -1,120 +1,167 @@
 "use client"
 
-import { useState } from "react"
-import { Copy, Check, Star, ExternalLink, Code2, Database, Cloud, Sparkles, Rocket } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Copy, Check, Star, ExternalLink, Code2, Database, Cloud, Sparkles, Rocket, Droplet, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
-// Mock data - replace with real data later
-const generators = [
-    {
-        id: 1,
-        title: "Next.js 14 SaaS Starter",
-        description: "Complete SaaS boilerplate with authentication, payments, and dashboard",
-        category: "fullstack",
-        tags: ["Next.js", "Stripe", "Clerk", "Prisma"],
-        icon: Rocket,
-        color: "from-purple-500 to-pink-500",
-        prompt: "Create a Next.js 14 SaaS starter with Clerk authentication, Stripe payments, Prisma ORM, and a modern dashboard. Include TypeScript, Tailwind CSS, and best practices.",
-        popular: true,
-    },
-    {
-        id: 2,
-        title: "React Component Library",
-        description: "Build a reusable component library with Storybook and TypeScript",
-        category: "frontend",
-        tags: ["React", "TypeScript", "Storybook"],
-        icon: Code2,
-        color: "from-blue-500 to-cyan-500",
-        prompt: "Create a React component library with TypeScript, Storybook for documentation, and best practices for reusable components.",
-        popular: false,
-    },
-    {
-        id: 3,
-        title: "Express REST API",
-        description: "Production-ready REST API with authentication and database",
-        category: "backend",
-        tags: ["Node.js", "Express", "MongoDB"],
-        icon: Database,
-        color: "from-green-500 to-emerald-500",
-        prompt: "Build a production-ready Express.js REST API with JWT authentication, MongoDB integration, error handling, and API documentation.",
-        popular: true,
-    },
-    {
-        id: 4,
-        title: "Docker Multi-Container Setup",
-        description: "Docker Compose configuration for full-stack applications",
-        category: "devops",
-        tags: ["Docker", "Docker Compose", "Nginx"],
-        icon: Cloud,
-        color: "from-orange-500 to-red-500",
-        prompt: "Create a Docker Compose setup for a full-stack application with frontend, backend, database, and Nginx reverse proxy.",
-        popular: false,
-    },
-    {
-        id: 5,
-        title: "AI Chatbot Integration",
-        description: "Integrate OpenAI GPT into your application with streaming",
-        category: "ai",
-        tags: ["OpenAI", "Streaming", "React"],
-        icon: Sparkles,
-        color: "from-yellow-500 to-orange-500",
-        prompt: "Integrate OpenAI GPT API into a React application with streaming responses, conversation history, and error handling.",
-        popular: true,
-    },
-    // Add more generators...
-]
+// Icon mapping for database icon names
+const iconMap: Record<string, any> = {
+    Code2,
+    Database,
+    Cloud,
+    Sparkles,
+    Rocket,
+}
+
+interface Prompt {
+    id: string
+    title: string
+    description: string
+    content: string
+    category: string
+    tags: string[]
+    icon: string
+    color: string
+    popular: boolean
+    waterConsumption: number
+    votes: number
+}
 
 interface GeneratorGridProps {
     category: string
     searchQuery: string
 }
 
+// Water consumption indicator component
+function WaterConsumptionBadge({ ml }: { ml: number }) {
+    const getWaterLevel = (ml: number) => {
+        if (ml < 250) return { level: "low", color: "text-green-500", droplets: 1, label: "Low" }
+        if (ml < 400) return { level: "medium", color: "text-blue-500", droplets: 2, label: "Medium" }
+        return { level: "high", color: "text-orange-500", droplets: 3, label: "High" }
+    }
+
+    const waterLevel = getWaterLevel(ml)
+
+    return (
+        <div className="group/water relative">
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-muted/30 border border-border/50 hover:border-blue-500/50 transition-all duration-300 cursor-help">
+                <div className="flex items-center gap-0.5">
+                    {[...Array(waterLevel.droplets)].map((_, i) => (
+                        <Droplet
+                            key={i}
+                            className={`h-3 w-3 ${waterLevel.color} fill-current`}
+                            style={{ animationDelay: `${i * 0.2}s` }}
+                        />
+                    ))}
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">
+                    ~{ml}ml
+                </span>
+            </div>
+
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-lg bg-card border border-border shadow-xl opacity-0 invisible group-hover/water:opacity-100 group-hover/water:visible transition-all duration-200 z-20 pointer-events-none">
+                <div className="text-xs space-y-2">
+                    <p className="font-semibold text-foreground">💧 Water Impact</p>
+                    <p className="text-muted-foreground leading-relaxed">
+                        Running this AI prompt uses approximately <span className="text-blue-500 font-semibold">{ml}ml</span> of water for cooling data center servers.
+                    </p>
+                    <p className="text-muted-foreground/80 text-[10px] italic">
+                        * Estimated based on prompt complexity and AI processing requirements
+                    </p>
+                </div>
+                {/* Arrow */}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px">
+                    <div className="border-4 border-transparent border-t-border"></div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 export function GeneratorGrid({ category, searchQuery }: GeneratorGridProps) {
-    const [copiedId, setCopiedId] = useState<number | null>(null)
-    const [favorites, setFavorites] = useState<number[]>([1, 3, 5])
+    const [prompts, setPrompts] = useState<Prompt[]>([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    const [copiedId, setCopiedId] = useState<string | null>(null)
+    const [favorites, setFavorites] = useState<string[]>([])
 
-    const filteredGenerators = generators.filter((gen) => {
-        const matchesCategory = category === "all" || gen.category === category
-        const matchesSearch =
-            searchQuery === "" ||
-            gen.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            gen.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            gen.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-        return matchesCategory && matchesSearch
-    })
+    useEffect(() => {
+        fetchPrompts()
+    }, [category, searchQuery])
 
-    const handleCopy = (id: number, prompt: string) => {
+    const fetchPrompts = async () => {
+        try {
+            setLoading(true)
+            const params = new URLSearchParams()
+            if (category !== "all") params.append("category", category)
+            if (searchQuery) params.append("search", searchQuery)
+
+            const response = await fetch(`/api/prompts?${params}`)
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch prompts")
+            }
+
+            const data = await response.json()
+            setPrompts(data.prompts)
+        } catch (error) {
+            console.error("Error fetching prompts:", error)
+            setError("Failed to load prompts. Please try again.")
+            toast.error("Failed to load prompts")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleCopy = (id: string, prompt: string) => {
         navigator.clipboard.writeText(prompt)
         setCopiedId(id)
         toast.success("Prompt copied to clipboard!")
         setTimeout(() => setCopiedId(null), 2000)
     }
 
-    const toggleFavorite = (id: number) => {
+    const toggleFavorite = (id: string) => {
         setFavorites((prev) =>
             prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
         )
     }
 
-    if (filteredGenerators.length === 0) {
+    if (loading) {
+        return (
+            <div className="text-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary mb-4" />
+                <p className="text-muted-foreground">Loading generators...</p>
+            </div>
+        )
+    }
+
+    if (error || prompts.length === 0) {
         return (
             <div className="text-center py-20">
                 <div className="inline-flex p-4 rounded-full bg-muted/50 mb-4">
                     <Code2 className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">No generators found</h3>
-                <p className="text-muted-foreground">
-                    Try adjusting your search or category filter
+                <h3 className="text-xl font-semibold mb-2">
+                    {error ? "Error loading prompts" : "No generators found"}
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                    {error || "Try adjusting your search or category filter"}
                 </p>
+                {error && (
+                    <Button onClick={fetchPrompts}>
+                        Try Again
+                    </Button>
+                )}
             </div>
         )
     }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredGenerators.map((generator) => {
-                const Icon = generator.icon
+            {prompts.map((generator) => {
+                const Icon = iconMap[generator.icon] || Code2
                 const isFavorite = favorites.includes(generator.id)
                 const isCopied = copiedId === generator.id
 
@@ -162,10 +209,15 @@ export function GeneratorGrid({ category, searchQuery }: GeneratorGridProps) {
                                 ))}
                             </div>
 
+                            {/* Water Consumption Badge */}
+                            <div className="mb-4">
+                                <WaterConsumptionBadge ml={generator.waterConsumption} />
+                            </div>
+
                             {/* Actions */}
                             <div className="flex gap-2">
                                 <Button
-                                    onClick={() => handleCopy(generator.id, generator.prompt)}
+                                    onClick={() => handleCopy(generator.id, generator.content)}
                                     className="flex-1 gap-2"
                                     variant={isCopied ? "default" : "outline"}
                                 >

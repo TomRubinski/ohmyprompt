@@ -1,15 +1,16 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Code2, Database, Cloud, Sparkles, Layers, Rocket, Star, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const categories = [
-    { id: "all", label: "All Generators", icon: Layers, count: 50 },
-    { id: "frontend", label: "Frontend", icon: Code2, count: 15 },
-    { id: "backend", label: "Backend", icon: Database, count: 12 },
-    { id: "devops", label: "DevOps", icon: Cloud, count: 10 },
-    { id: "ai", label: "AI & ML", icon: Sparkles, count: 8 },
-    { id: "fullstack", label: "Full-Stack", icon: Rocket, count: 5 },
+const categoryConfig = [
+    { id: "all", label: "All Generators", icon: Layers },
+    { id: "frontend", label: "Frontend", icon: Code2 },
+    { id: "backend", label: "Backend", icon: Database },
+    { id: "devops", label: "DevOps", icon: Cloud },
+    { id: "ai", label: "AI & ML", icon: Sparkles },
+    { id: "fullstack", label: "Full-Stack", icon: Rocket },
 ]
 
 interface DashboardSidebarProps {
@@ -25,6 +26,24 @@ export function DashboardSidebar({
     isOpen,
     onClose,
 }: DashboardSidebarProps) {
+    const [stats, setStats] = useState<Record<string, number>>({})
+
+    useEffect(() => {
+        fetchStats()
+    }, [])
+
+    const fetchStats = async () => {
+        try {
+            const response = await fetch("/api/prompts/stats")
+            if (response.ok) {
+                const data = await response.json()
+                setStats(data.stats)
+            }
+        } catch (error) {
+            console.error("Error fetching stats:", error)
+        }
+    }
+
     return (
         <>
             {/* Mobile Overlay */}
@@ -50,9 +69,10 @@ export function DashboardSidebar({
                                 Categories
                             </h2>
                         </div>
-                        {categories.map((category) => {
+                        {categoryConfig.map((category) => {
                             const Icon = category.icon
                             const isSelected = selectedCategory === category.id
+                            const count = stats[category.id] || 0
 
                             return (
                                 <button
@@ -85,7 +105,7 @@ export function DashboardSidebar({
                                                 : "bg-muted text-muted-foreground"
                                         )}
                                     >
-                                        {category.count}
+                                        {count}
                                     </span>
                                 </button>
                             )
@@ -98,7 +118,7 @@ export function DashboardSidebar({
                             <Star className="h-5 w-5 group-hover:scale-110 transition-transform" />
                             <span className="text-sm font-medium">Favorites</span>
                             <span className="ml-auto text-xs bg-muted px-2 py-0.5 rounded-full">
-                                12
+                                0
                             </span>
                         </button>
                         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground group">

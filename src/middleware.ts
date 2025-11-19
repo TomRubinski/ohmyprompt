@@ -26,13 +26,13 @@ export default clerkMiddleware(async (auth, req) => {
         const { sessionClaims } = await auth();
 
         // Check if user has access (set via Clerk Webhook)
-        const hasAccess = (sessionClaims?.public_metadata as any)?.hasAccess;
+        const hasAccess = (sessionClaims?.sts as string);
 
-        // if (!hasAccess) {
-        //     const homeUrl = new URL("/", req.url);
-        //     homeUrl.searchParams.set("error", "subscription_required");
-        //     return NextResponse.redirect(homeUrl);
-        // }
+        if (hasAccess !== "active") {
+            const homeUrl = new URL("/", req.url);
+            homeUrl.searchParams.set("error", "subscription_required");
+            return NextResponse.redirect(homeUrl);
+        }
     }
 });
 
